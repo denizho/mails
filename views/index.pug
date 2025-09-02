@@ -1,0 +1,139 @@
+html(lang='ru')
+    head
+        meta(charset='UTF-8')
+        title mails
+        script(src='https://code.jquery.com/jquery-3.5.1.min.js')
+        style.
+            .container { max-width: 800px; margin: auto; }
+            .columns { display: flex; justify-content: space-between; }
+            .column { width: 48%; height: 400px; overflow-y: auto; border: 1px solid #ccc; border-radius: 5px; padding: 10px; }
+            .email-box { border: 1px solid #ccc; padding: 10px; margin: 10px 0; border-radius: 5px; }
+            .actions { margin-top: 10px; }
+            .btn { padding: 5px 10px; cursor: pointer; }
+            .btn-d { background-color: #f44336; color: white; }
+            .btn-w { background-color: #ff9800; color: white; }
+            .btn-i { background-color: #2196F3; color: white; }
+            .form-group { margin-bottom: 15px; }
+            label { display: block; margin-bottom: 5px; }
+            input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+            button.btn-primary { background-color: #4CAF50; color: white; }
+        script.
+            $(document).ready(function() {
+                function sendEmail(url, data, successMessage) {
+                    $.ajax({
+                        type: url === '/delete-email' ? 'DELETE' : 'POST',
+                        url: url,
+                        contentType: 'application/json',
+                        data: JSON.stringify(data),
+                        success: function() {
+                            alert(successMessage);
+                            location.reload();
+                        },
+                        error: function(xhr) {
+                            alert('Error: ' + xhr.responseText);
+                        }
+                    });
+                }
+
+                $('#from_email').val(localStorage.getItem('from_email') || '');
+                $('#sender_key').val(localStorage.getItem('sender_key') || '');
+                $('#to_email').val(localStorage.getItem('to_email') || '');
+                $('#subject').val(localStorage.getItem('subject') || '');
+                $('#text').val(localStorage.getItem('text') || '');
+                $('#attachments').val(localStorage.getItem('attachments') || '');
+
+                $('input, textarea').on('input', function() {
+                    localStorage.setItem($(this).attr('id'), $(this).val());
+                });
+
+                $('form').on('submit', function(event) {
+                    event.preventDefault();
+
+                    const formData = {
+                        from_email: $('#from_email').val(),
+                        sender_key: $('#sender_key').val(),
+                        email: $('#to_email').val(),
+                        subject: $('#subject').val(),
+                        text: $('#text').val(),
+                        attachments: $('#attachments').val() ? JSON.parse($('#attachments').val()) : []
+                    };
+
+                    sendEmail('/send-email', formData, 'добавлено в очередь');
+                });
+
+                $('.send').on('click', function() {
+                    const emailData = {
+                        email: $(this).data('email'),
+                        subject: $(this).data('subject'),
+                        text: $(this).data('text') || '',
+                        from_email: $(this).data('from_email'),
+                        sender_key: $(this).data('sender_key'),
+                        attachments: $(this).data('attachments') ? 
+                            (typeof $(this).data('attachments') === 'string' ? JSON.parse($(this).data('attachments')) : $(this).data('attachments')) 
+                            : []
+                    };
+                    sendEmail('/send-email-now', emailData, 'отправлено вне очереди');
+                });
+
+                $('.delete').on('click', function() {
+                    const emailData = {
+                        email: $(this).data('email'),
+                        subject: $(this).data('subject'),
+                    };
+                    sendEmail('/delete-email', emailData, 'удалено');
+                });
+
+                $('.edit').on('click', function() {
+                    const oldEmail = $(this).data('email');
+                    const subject = $(this).data('subject');
+                    const newEmail = prompt('новый майл:', oldEmail);
+                    if (newEmail) {
+                        sendEmail('/edit-email', { oldEmail, newEmail, subject }, 'обновлено');
+                    }
+                });
+            });
+    body
+        .container
+            .columns
+                .column
+                    h2 очередь
+                    #queued-emails
+                        each email in queuedEmails
+                            .email-box
+                                div Мейл: #{email.email}
+                                div Сабж: #{email.subject}
+                                div Статус: #{email.status}
+                                .actions
+                                    button.btn.btn-d(type='button', class='send', data-email=email.email, data-subject=email.subject, data-text=email.text, data-from_email=email.from_email, data-sender_key=email.sender_key, data-attachments=email.attachments) отправить
+                                    button.btn.btn-w(type='button', class='delete', data-email=email.email, data-subject=email.subject) удалить
+                                    button.btn.btn-i(type='button', class='edit', data-email=email.email, data-subject=email.subject) редактировать
+                .column
+                    h2 отправленные
+                    #sent-emails
+                        each email in emails
+                            .email-box
+                                div Мейл: #{email.email}
+                                div Сабж: #{email.subject}
+                                div Статус: #{email.status}
+
+            h2 отправить
+            form
+                .form-group
+                    label(for='from_email') от
+                    input#from_email(type='email', name='from_email', required)
+                .form-group
+                    label(for='sender_key') ключ
+                    input#sender_key(type='password', name='sender_key', required)
+                .form-group
+                    label(for='to_email') кому
+                    input#to_email(type='email', name='email', required)
+                .form-group
+                    label(for='subject') тема
+                    input#subject(type='text', name='subject', required)
+                .form-group
+                    label(for='text') сообщение
+                    input#text(type='text', name='text', required)
+                .form-group
+                    label(for='attachments') атачменты
+                    input#attachments(type='text', name='attachments')
+                button.btn.btn-primary(type='submit') добавить
